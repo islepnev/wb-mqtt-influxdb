@@ -1,0 +1,11 @@
+[Unit]
+Description=MQTT to InfluxDB bridge
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/mqtt-influxdb/venv/bin/python /opt/mqtt-influxdb
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
