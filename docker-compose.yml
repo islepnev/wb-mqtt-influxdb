@@ -1,0 +1,10 @@
+# docker-compose.yml
+
+services:
+  mqtt_influxdb_bridge:
+    build: .
+    container_name: mqtt_influxdb_bridge
+    env_file:
+      - .env
+    network_mode: host
+    restart: unless-stopped
