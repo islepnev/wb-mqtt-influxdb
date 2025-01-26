@@ -8,8 +8,7 @@ WORKDIR /app
 COPY . /app
 
 # Install required dependencies
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Set entrypoint command
-CMD ["python", "__main__.py"]
+CMD ["python3", "-u", "/app/__main__.py"]
