@@ -6,26 +6,37 @@ This script receives MQTT data and saves those to InfluxDB.
 
 """
 
+import os
 import re
 from typing import NamedTuple
 
+from dotenv import load_dotenv
 import paho.mqtt.client as mqtt
 from influxdb import InfluxDBClient
 
-INFLUXDB_ADDRESS = 'localhost'
-INFLUXDB_USER = ''
-INFLUXDB_PASSWORD = ''
-INFLUXDB_DATABASE = 'home'
+# Load environment variables from .env
+load_dotenv()
 
-MQTT_ADDRESS = '192.168.50.10'
-MQTT_USER = ''
-MQTT_PASSWORD = ''
-MQTT_TOPIC = '/devices/+/controls/+'  # [bme280|mijia]/[temperature|humidity|battery|status]
-#MQTT_REGEX = 'devices/([^/]+)/([^/]+)'
+INFLUXDB_HOST = os.getenv('INFLUXDB_HOST', 'localhost')
+INFLUXDB_PORT = os.getenv('INFLUXDB_PORT', 8086)
+INFLUXDB_USER = os.getenv('INFLUXDB_USER', '')
+INFLUXDB_PASSWORD = os.getenv('INFLUXDB_PASSWORD', '')
+INFLUXDB_DATABASE = os.getenv('INFLUXDB_DATABASE', 'home')
+INFLUXDB_TIMEOUT = os.getenv('INFLUXDB_TIMEOUT', 10)
+
+MQTT_HOST = os.getenv('MQTT_HOST', 'localhost')
+MQTT_PORT = os.getenv('MQTT_PORT', 1883)
+MQTT_USER = os.getenv('MQTT_USER', '')
+MQTT_PASSWORD = os.getenv('MQTT_PASSWORD', '')
+MQTT_TOPIC = os.getenv('MQTT_TOPIC', '/devices/+/controls/+')
 MQTT_REGEX = '/devices/([^/]+)/controls/([^/]+)'
 MQTT_CLIENT_ID = 'MQTTInfluxDBBridge'
 
-influxdb_client = InfluxDBClient(INFLUXDB_ADDRESS, 8086, INFLUXDB_USER, INFLUXDB_PASSWORD, None)
+
+message_count = 0  # Global variable to track message count
+MAX_MESSAGES = 10  # Limit of messages to print
+
+influxdb_client = InfluxDBClient(host=INFLUXDB_HOST, port=INFLUXDB_PORT, username=INFLUXDB_USER, password=INFLUXDB_PASSWORD, database=None, timeout=INFLUXDB_TIMEOUT)
 
 
 class SensorData(NamedTuple):
@@ -35,13 +46,19 @@ class SensorData(NamedTuple):
 
 
 def on_connect(client, userdata, flags, rc):
-    """ The callback for when the client receives a CONNACK response from the server."""
-    print('Connected with result code ' + str(rc))
+    """Callback for when the client receives a CONNACK response from the server."""
+    print(f"Connected to InfluxDB {INFLUXDB_HOST}:{INFLUXDB_PORT} database, result code {str(rc)}")
     client.subscribe(MQTT_TOPIC)
-
+    print(f"Subscribed on MQTT broker {MQTT_HOST}:{MQTT_PORT} to topic '{MQTT_TOPIC}'")
 
 def on_message(client, userdata, msg):
-    """The callback for when a PUBLISH message is received from the server."""
+    """Callback for when a PUBLISH message is received from the server."""
+    global message_count
+    message_count += 1
+
+    if message_count <= MAX_MESSAGES:
+        print(f'Message {message_count}: {msg.topic} {msg.payload.decode("utf-8")}')
+
     # print(msg.topic + ' ' + str(msg.payload))
     sensor_data = _parse_mqtt_message(msg.topic, msg.payload.decode('utf-8'))
     if sensor_data is not None:
@@ -56,8 +73,7 @@ def _parse_mqtt_message(topic, payload):
         if measurement == 'status':
             return None
         return SensorData(location, measurement, float(payload))
-    else:
-        return None
+    return None
 
 
 def _send_sensor_data_to_influxdb(sensor_data):
@@ -77,7 +93,7 @@ def _send_sensor_data_to_influxdb(sensor_data):
 
 def _init_influxdb_database():
     databases = influxdb_client.get_list_database()
-    if len(list(filter(lambda x: x['name'] == INFLUXDB_DATABASE, databases))) == 0:
+    if not any(db['name'] == INFLUXDB_DATABASE for db in databases):
         influxdb_client.create_database(INFLUXDB_DATABASE)
     influxdb_client.switch_database(INFLUXDB_DATABASE)
 
@@ -90,7 +106,7 @@ def main():
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
 
-    mqtt_client.connect(MQTT_ADDRESS, 1883)
+    mqtt_client.connect(MQTT_HOST, MQTT_PORT)
     mqtt_client.loop_forever()
 
 
