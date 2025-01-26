@@ -1,0 +1,30 @@
+# .gitignore
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Environment variables
+.env
+
+# Virtual environments
+.venv/
+
+# Docker-related files
+*.log
+docker-compose.override.yml
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Editor-specific files
+.vscode/
+.idea/
+
+# Temporary files
+*.swp
+*.tmp
+*.bak
+*.old
+*~
